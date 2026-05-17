@@ -30,10 +30,15 @@ src/
   controllers/
     auth.controller.js
   models/
-    session.model.js
     user.model.js
+    session.model.js
+    otp.model.js
   routes/
     auth.routes.js
+  services/
+    email.service.js
+  utils/
+    utils.js
 ```
 
 ---
