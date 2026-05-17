@@ -3,6 +3,9 @@ import jwt from "jsonwebtoken";
 import config from "../config/config.js";
 import crypto from "crypto";
 import sessionModel from "../models/session.model.js";
+import {sendEmail} from "../services/email.service.js";
+import {generateOTP, getOtpHtml} from "../utils/utils.js";
+import OtpModel from "../models/otp.model.js";
 
 export async function register(req, res){
     try {
@@ -18,44 +21,29 @@ export async function register(req, res){
             });
         }
 
-        // Weak against brute-force and rainbow-table attacks.
         const hashPassword = crypto.createHash("sha256").update(password).digest("hex");
         const user = await userModel.create({username, email, password: hashPassword});
 
-        const refreshTokne = jwt.sign({
-            id: user._id,
-            username: user.username,
-            issuedAt: Date.now()},
-            config.jwtSecretKey, {expiresIn: "7d"}
-        );
+        const otp = generateOTP();
+        const html = getOtpHtml(otp);
 
-        const refreshTokenHash = crypto.createHash("sha256").update(refreshTokne).digest("hex");
+        const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
-        const session = await sessionModel.create({
+        await OtpModel.create({
+            email,
             userId: user._id,
-            refreshTokenHash,
-            ip: req.ip,
-            userAgent: req.headers["user-agent"]    
+            otpHash
         });
 
-        const accessToken = jwt.sign({
-            id: user._id, 
-            session: session._id, // Include session ID to allow for session revocation and tracking.
-        }, config.jwtSecretKey, {expiresIn: "15m"});
-
-        res.cookie("refreshToken", refreshTokne, {
-            httpOnly: true,
-            // secure: true, // Set to true in production with HTTPS
-            sameSite: "Strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-        });
-
+        await sendEmail(email, "OTP Verification" , `Your OTP Code is ${otp }`, html);
+        // await sendEmail(email, "Welcome to Auth App", "Thank you for registering!", `<h1>Welcome, ${username}!</h1><p>Thank you for registering at our Auth App.</p>`);
+        
         return res.status(201).json({
             message: "User registered successfully",
             user: {
                 username: user.username,
                 email: user.email,
-                accessToken: accessToken
+                verified: user.verified
             }
         });
     } catch (err) {
@@ -71,11 +59,18 @@ export async function login(req, res){
     try{
         const {email, password} = req.body;   
 
-        const user = await userModel.findOne({ email });
+        const user = await userModel.findOne({email});
 
         if(!user){
             return res.status(404).json({
                 message: "User not found"
+            });
+        }
+
+        if(!user.verified)
+        {
+            return res.status(403).json({
+                message: "Email not verified. Please verify your email before logging in."
             });
         }
 
@@ -122,7 +117,7 @@ export async function login(req, res){
                 accessToken: accessToken
             }
         });
-        
+
     }catch(err){
         return res.status(500).json({
             message: "Failed to login",
@@ -305,5 +300,49 @@ export async function logoutAll(req, res)
             message: "Failed to logout all",
             error: err.message
         })
+    }
+}
+
+export async function verifyEmail(req, res){
+    try{
+        const {email, otp} = req.body;     
+
+        const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+
+        const otpRecord = await OtpModel.findOne({ email, otpHash: otpHash });
+        if(!otpRecord){
+            return res.status(400).json({
+                message: "Invalid OTP"
+            });
+        }
+
+        // const user = await userModel.findOne({ email });
+        // if(!user){
+        //     return res.status(404).json({
+        //         message: "User not found"
+        //     });
+        // }
+
+        // user.verified = true;
+        // await user.save();
+
+        const user = await userModel.findByIdAndUpdate(otpRecord.userId, { verified: true }  );
+
+        await OtpModel.deleteMany({ userId : otpRecord.userId }); 
+        return res.status(200).json({
+            message: "Email verified successfully, redirected to login page",
+            user:{
+                username: user.username,
+                email: user.email,
+                verified: user.verified
+            }
+        });
+
+    }
+    catch(err){
+        return res.status(500).json({
+            message: "Failed to verify email",
+            error: err.message
+        });
     }
 }

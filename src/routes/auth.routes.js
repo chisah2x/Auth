@@ -45,9 +45,18 @@ authRouter.get("/logout", authController.logout);
 
 /** Logout user from all devices
  * @route GET /api/auth/logout-all
- * @cookie refreshToken=<token>
+ * @description Revokes all active sessions for the authenticated user across all devices
+ * @cookie refreshToken=<token> (used to identify the user)
  * @returns { message: "Logged out from all devices successfully" }
  */
 authRouter.get("/logout-all", authController.logoutAll);
+
+/** Verify email using OTP
+ * @route POST /api/auth/verify-email
+ * @body { email, otp }
+ * @description Validates OTP and marks user email as verified. Deletes all OTP records after verification.
+ * @returns { message: "Email verified successfully, redirected to login page", user: { username, email, verified } }
+ */
+authRouter.post("/verify-email", authController.verifyEmail);
 
 export default authRouter;
