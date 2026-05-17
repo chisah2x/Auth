@@ -12,8 +12,15 @@ const authRouter = Router();
  * @body { username, email, password }
  * @returns { user: { username, email } }
  */
-
 authRouter.post('/register', authController.register);
+
+/** Login user
+ * @route POST /api/auth/login
+ * @body { usernameOrEmail, password }
+ * @returns { accessToken: <token>, refreshToken: <token> }
+ */
+authRouter.post('/login', authController.login);
+
 
 /** Get current user info
  * @route GET /api/auth/get-me
@@ -28,5 +35,19 @@ authRouter.get("/get-me", authController.getMe);
  * @returns { accessToken: <new token> }
  */
 authRouter.get("/refresh-token", authController.refreshToken);
+
+/** Logout user
+ * @route GET /api/auth/logout
+ * @cookie refreshToken=<token>
+ * @returns { message: "Logged out successfully" }
+ */
+authRouter.get("/logout", authController.logout);
+
+/** Logout user from all devices
+ * @route GET /api/auth/logout-all
+ * @cookie refreshToken=<token>
+ * @returns { message: "Logged out from all devices successfully" }
+ */
+authRouter.get("/logout-all", authController.logoutAll);
 
 export default authRouter;

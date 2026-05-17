@@ -11,9 +11,14 @@ if(!process.env.JWT_SECRET_KEY){
     throw new Error("JWT_SECRET_KEY is not defined in your environment variables");
 }
 
+if(!process.env.MONGO_DB_NAME){
+    throw new Error("MONGO_DB_NAME is not defined in your environment variables");
+}
+
 const config = {
   mongoURI: process.env.MONGO_URI, // MongoDB connection string from environment variables
   jwtSecretKey: process.env.JWT_SECRET_KEY, // JWT secret key from environment variables
+  mongoDBName: process.env.MONGO_DB_NAME // MongoDB database name from environment variables
 };
 
 export default config;
